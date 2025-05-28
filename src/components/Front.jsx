@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import "./front.css";
-import { fetchData, getIngredientDetails } from "./dataFetch";
+import { getIngredientDetails } from "./dataFetch";
 import { Link } from "react-router-dom";
 
 const Front = () => {
@@ -9,9 +9,24 @@ const Front = () => {
 
   useEffect(() => {
     const fetchProducts = async () => {
-      const { products, ingredients } = await fetchData(import.meta.env.VITE_API_URL, import.meta.env.VITE_API_KEY);
-      setProducts(products);
-      setIngredients(ingredients);
+      try {
+        const response = await fetch(import.meta.env.VITE_API_URL, {
+          headers: {
+            "x-api-key": import.meta.env.VITE_API_KEY,
+          },
+        });
+
+        if (!response.ok) throw new Error("API failed");
+
+        const data = await response.json();
+        setProducts(data.products);
+        setIngredients(data.ingredients);
+      } catch (error) {
+        const localCoffees = JSON.parse(localStorage.getItem("coffees") || "[]");
+        const localIngredients = JSON.parse(localStorage.getItem("ingredients") || "[]");
+        setProducts(localCoffees);
+        setIngredients(localIngredients);
+      }
     };
 
     fetchProducts();
@@ -22,19 +37,22 @@ const Front = () => {
   }
 
   const productRows = products.map((product, index) => {
-    const { description, flavor, strength } = getIngredientDetails(product.selectedIngredients, ingredients);
+    const { description, flavor, strength } = getIngredientDetails(
+      product.selectedIngredients || [],
+      ingredients
+    );
 
     return (
       <tr className="product-row" key={index}>
-        <td className="product-name">{product.title}</td>
-        <td className="product-price">{product.totalPrice}</td>
+        <td className="product-name">{product.name}</td>
+        <td className="product-price">${product.price?.toFixed(2)}</td>
         <td className="product-description">{description}</td>
         <td className="product-strength">{strength}</td>
-        <td className="product-status">{product.caffeine}</td>
+        <td className="product-status">{product.caffeine} mg</td>
         <td className="product-flavor">{flavor}</td>
         <td className="product-country">{product.country}</td>
         <td className="product-seemore">
-          <Link to={`/details/${product._uuid}`}>see more</Link>
+          <Link to={`/details/${product.id}`}>see more</Link>
         </td>
       </tr>
     );
@@ -118,9 +136,7 @@ const Front = () => {
               <th>See More</th>
             </tr>
           </thead>
-          <tbody>
-            {productRows}
-          </tbody>
+          <tbody>{productRows}</tbody>
         </table>
       </section>
     </>
